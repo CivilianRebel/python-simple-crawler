@@ -10,21 +10,21 @@ import os
 import requests
 
 update_tld_names()
-e, w, l = 0, 1, 2
+E, W, L = 0, 1, 2
 start_url = 'https://pythonprogramming.net/'
 banned = ['facebook.com', 'twitter.com', 't.co', 'instagram.com']
 
 
-def log(string, type):
+def log(string, code):
     string = str(string)
     ts = time.time()
     t = str(datetime.fromtimestamp(ts).strftime('[%H:%M:%S] '))
     prefix = ''
-    if type is e:
+    if code is E:
         prefix = 'ERROR: ' + t
-    elif type is w:
+    elif code is W:
         prefix = 'WARN: ' + t
-    elif type is l:
+    elif code is L:
         prefix = 'LOG: ' + t
 
     exists = os.path.isfile('logs.txt')
@@ -33,8 +33,8 @@ def log(string, type):
         with open('logs.txt', 'w') as f:
             f.write('NEW LOG \n \n')
 
-    with open('logs.txt', 'a') as log:
-        log.write(str(prefix + string) + '\n')
+    with open('logs.txt', 'a') as f:
+        f.write(str(prefix + string) + '\n')
 
 
 def handle_local_links(url, link):
@@ -47,10 +47,10 @@ def handle_local_links(url, link):
 # add crawled urls to file
 def completed(url, c):
     try:
-        result = c.execute(f"INSERT INTO urls_visited (url, timestamp) VALUES ('{url}', '{int(time.time())}')")
+        c.execute(f"INSERT INTO urls_visited (url, timestamp) VALUES ('{url}', '{int(time.time())}')")
         c.commit()
     except FileNotFoundError as er:
-        log(str(er)+'\n\n', 0)
+        log(str(er) + '\n\n', 0)
     except Exception as er:
         log(str(er) + '\n\n', 0)
 
@@ -92,16 +92,16 @@ def get_links(q):
             connection.commit()
             completed(url, connection)
         except TypeError as er:
-            log(er, e)
+            log(er, E)
             # print('Logged TypeError')
         except IndexError as er:
-            log(er, e)
+            log(er, E)
             # print('Logged IndexError')
         except AttributeError as er:
-            log(er, e)
+            log(er, E)
             # print('Logged AttributeError')
         except Exception as er:
-            log(str(er), e)
+            log(str(er), E)
             # print('Logged UNKNOWN ERROR CHECK LOG IMMEDIATELY')
 
 
@@ -115,12 +115,14 @@ def main():
         os.remove('logs.txt')
 
     q = Queue()
-    p = Pool(12, get_links, (q,))
+    Pool(12, get_links, (q,))
     q.put(start_url)
-    new_p = Pool(1, printout, (q, ))
+    Pool(1, printout, (q,))
     while True:
-        a1 = 1
+        time.sleep(5)
+        # keep this process alive while the children run
         # q.put(str(input('\nEnter url to add: ')))
+
 
 if __name__ == '__main__':
     main()
