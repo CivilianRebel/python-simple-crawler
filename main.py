@@ -3,11 +3,12 @@ from instance import Crawler
 from pymongo import MongoClient
 import time
 import numpy as np
+from tqdm import tqdm
 
 
 class Boss:
 
-    def __init__(self, _threadcount, batch_size):
+    def __init__(self, _threadcount, batch_size, init=False):
         self.CPU_SIZE = _threadcount
         self.urls_per_batch = batch_size
         self.queue = multiprocessing.Manager().Queue()
@@ -17,8 +18,9 @@ class Boss:
         self.rawdata_db = client.maindb.raw_html
 
         multiprocessing.freeze_support()
-        self.start_url = 'https://www.w3schools.com/python/python_mongodb_delete.asp'
-        self.bootstrap()
+        self.start_url = 'https://www.wired.com/'
+        if init:
+            self.bootstrap()
         self.run()
 
     def bootstrap(self):
@@ -42,7 +44,7 @@ class Boss:
         i = 0
         urls = []
         for link in self.url_db.unfetched.find():
-            if i <= self.urls_per_batch:
+            if i <= self.urls_per_batch * self.CPU_SIZE:
                 self.url_db.unfetched.delete_one({'url': link['url']})
                 urls.append(link['url'])
                 # print(link['url'])
@@ -69,21 +71,27 @@ class Boss:
         while not self.queue.empty():
             results.append(dict(self.queue.get()))
         t = 0
-        for r in results:
+
+        for r in tqdm(results):
             insert = {'url': r['crawled_url'],
                       'html': r['html'],
-                      'time': int(time.time())
+                      'time': int(time.time()),
+                      'linkbacks': 0
                       }
             self.rawdata_db.insert_one(insert)
-            insert = {'url': r['crawled_url'], 'time': int(time.time())}
-            self.url_db.fetched.insert_one(insert)
 
             for url in r['urls']:
+                # if the url is in fetched then add one to the current linkback
                 insert = {'url': url}
                 query = {'url': url}
-                if not self.url_db.fetched.find_one(query):
+                record = self.rawdata_db.find_one(query, {'_id': 0, 'linkbacks': 1})
+                if not record:
                     t += 1
                     self.url_db.unfetched.insert_one(insert)
+                else:
+                    old_linkbacks = int(record['linkbacks'])
+                    self.rawdata_db.update_one(query, {'$set': {'linkbacks': old_linkbacks+1}})
+
         return t
 
     def run(self):
@@ -102,4 +110,4 @@ class Boss:
 
 
 if __name__ == '__main__':
-    b = Boss(12, 200)
+    b = Boss(48, 24, init=True)

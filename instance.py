@@ -24,13 +24,12 @@ class Crawler(Process):
     def parse_urls(self, link, url):
         link = str(link)
         url = str(url)
-        parsed = parse_url(url)
         if link == '#':
-            return parsed.scheme + '://' + parsed.host + '/' + parsed.path
+            return url
         elif link.startswith('/'):
-            return self.extract_root(url) + link
-        else:
-            return parsed.scheme + '://' + parsed.host + '/' + parsed.path
+            url = self.extract_root(url) + link
+            return url.split('?')[0]
+        return url.split('?')[0]
 
     def run(self):
         # begin crawling 0 depth and send
